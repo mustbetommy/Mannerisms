@@ -1,0 +1,17 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# IDEs
+.idea/
+.vs/
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+
+# OS files
+*~
+~$*
+.DS_Store

@@ -1,0 +1,27 @@
+﻿<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+	<PropertyGroup>
+		<Authors>TeejayLabs</Authors>
+		<Version>0.0.0.1</Version>
+		<Description>Mannerisms</Description>
+		<Copyright>2026 (C) TeejayLabs</Copyright>
+		<PackageProjectUrl>https://github.com/mustbetommy/MannerismsLite</PackageProjectUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="JetBrains.Annotations" Version="2025.2.4" />
+		<ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Mannerisms.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<Target Name="CopyToDevPlugins" AfterTargets="Build">
+		<Copy SourceFiles="$(OutDir)Mannerisms.dll" DestinationFolder="$(AppData)\XIVLauncher\devPlugins\Mannerisms\" />
+		<Copy SourceFiles="$(OutDir)ECommons.dll" DestinationFolder="$(AppData)\XIVLauncher\devPlugins\Mannerisms\" />
+		<Copy SourceFiles="$(ProjectDir)Mannerisms.json" DestinationFolder="$(AppData)\XIVLauncher\devPlugins\Mannerisms\" />
+		<Copy SourceFiles="$(ProjectDir)Assets\icon.png" DestinationFolder="$(AppData)\XIVLauncher\devPlugins\Mannerisms\images\" />
+	</Target>
+</Project>

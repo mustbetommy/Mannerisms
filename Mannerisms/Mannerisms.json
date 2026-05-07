@@ -1,0 +1,11 @@
+{
+    "Author": "TeejayLabs",
+    "Name": "Mannerisms",
+    "Punchline": "Your character has a personality now.",
+    "Description": "Mannerisms gives your character a life of their own. Set up gestures that react to what you say in chat — type 'bye' and your character waves, say 'WHAT' and they recoil in shock. Create idle profiles so your character reads or checks their phone when you're AFK. Supports regex triggers, target-aware emotes, random emote pools with rarity controls, and fully customizable idle sequences. Your character finally feels alive.",
+    "InternalName": "Mannerisms",
+    "ApplicableVersion": "any",
+    "Tags": [ "Emote", "Chat", "Roleplay", "Idle", "Expression", "GPose", "Social" ],
+    "CategoryTags": [ "social" ],
+    "IconUrl": "https://github.com/mustbetommy/DalamudPlugins/raw/main/plugins/Mannerisms/images/icon.png"
+}

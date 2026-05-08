@@ -198,6 +198,14 @@ public class GesturesTab(Plugin plugin)
         ImGui.TextWrapped("Common gestures are pre-made patterns that cover everyday chat reactions. " +
             "Toggle the ones you want, and your character will perform the emote whenever you type a matching phrase.");
         ImGuiUtils.Spacer();
+        
+        // Checkbox: Suggest Emotions
+        {
+            plugin.Config.MarkDirtyIf(ImGui.Checkbox("Suggest Emotions##suggest_emotions", ref _selectedCharacterData.SuggestEmotions));
+            ImGui.SameLine();
+            ImGuiEx.InfoMarker($"Suggest emotions like /smile, /sad, /amazed{Environment.NewLine}for common emotes like :), :(, :o");
+            ImGuiUtils.Spacer();
+        }
 
         plugin.Config.MarkDirtyIf(_selectedCharacterData.VerifyCommonGestures());
         

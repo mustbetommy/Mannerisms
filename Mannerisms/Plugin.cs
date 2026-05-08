@@ -210,6 +210,15 @@ public partial class Plugin : IDalamudPlugin
             return;
         }
         
+        // Process emotions
+        if (CurrentCharacterData.SuggestEmotions)
+        {
+            if (EmotionUtils.TryMatchEmotion(message, out var emotion))
+            {
+                _pendingGestures.Add(emotion);
+            }
+        }
+        
         // Process common gestures
         foreach (var gesture in CurrentCharacterData.CommonGestures.Where(
                      gesture => gesture.Value.IsMatch(message, sanitizedSenderName)))

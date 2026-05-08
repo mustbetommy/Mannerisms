@@ -103,6 +103,23 @@ public class CommonGesture : GestureBase
     }
 }
 
+public class EmotionGestureInternal : GestureBase
+{
+    private readonly string _pattern;
+
+    public EmotionGestureInternal(string command, string pattern)
+    {
+        Command = command;
+        _pattern = pattern;
+        IsTargetOnly = false;
+    }
+
+    public bool IsMatch(IHandleableChatMessage message)
+    {
+        return IsPatternMatch(message, _pattern);
+    }
+}
+
 public enum ESimpleGesturePatternMatchType
 {
     Anywhere,

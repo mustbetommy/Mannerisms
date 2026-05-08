@@ -185,8 +185,6 @@ public partial class Plugin : IDalamudPlugin
                 EmoteSuggestionsQueue.Emotes.RemoveAt(0);
             }
         }
-        
-        _emoteQueue.Enqueue(gesture);
     }
 
     private void OnChatMessage(IHandleableChatMessage message)

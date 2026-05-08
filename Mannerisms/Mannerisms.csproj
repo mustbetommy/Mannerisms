@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Dalamud.NET.Sdk/15.0.0">
 	<PropertyGroup>
-		<Authors>TeejayLabs</Authors>
+		<Authors>T.j</Authors>
 		<Version>0.0.0.1</Version>
 		<Description>Mannerisms</Description>
 		<Copyright>2026 (C) TeejayLabs</Copyright>

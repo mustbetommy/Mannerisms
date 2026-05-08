@@ -1,35 +1,36 @@
-﻿using Dalamud.Utility;
-using Mannerisms.Util;
+﻿using Mannerisms.Util;
 using System.Collections.Generic;
 using System.Linq;
+using ECommons.DalamudServices;
 
 namespace Mannerisms.Data;
 
-public class EmoteQueueItem
+public class EmoteQueueItem(CachedEmote emote, float timeoutThreshold)
 {
-    public float Timer = 0;
-    public float TimeoutThreshold;
+    public float Timer;
+    public float TimeoutThreshold = timeoutThreshold;
     public bool IsExpired => Timer >= TimeoutThreshold;
-
-    public readonly CachedEmote Emote;
-
-    public EmoteQueueItem(CachedEmote emote, float timeoutThreshold, string? customLabel)
-    {
-        TimeoutThreshold = timeoutThreshold;
-        Emote = emote;
-    }
+    public readonly CachedEmote Emote = emote;
 }
 
 public class EmoteQueueRuntime
 {
     public readonly List<EmoteQueueItem> Emotes = [];
 
-    public bool TryAddEmote(string command, float timeoutThreshold, string? customLabel)
+    public void EnqueueEmote(string command, float timeoutThreshold)
     {
-        if (!EmoteUtils.TryGetAny(command, out var cachedEmote)) return false;
+        if (!EmoteUtils.TryGetAny(command, out var cachedEmote))
+        {
+            // The emote doesn't exist.
+            Svc.Log.Debug("Tried to enqueue an emote that doesn't exist.");
+            return;
+        }
+        
         var existing = Emotes.FirstOrDefault(e => e.Emote.Command == cachedEmote.Command);
         if (existing != null)
         {
+            // This emote is already queued.
+            // Set a new threshold, reset the timer, and bump it to first place.
             existing.TimeoutThreshold = timeoutThreshold;
             existing.Timer = 0;
             Emotes.Remove(existing);
@@ -37,10 +38,8 @@ public class EmoteQueueRuntime
         }
         else
         {
-            Emotes.Insert(0, new(cachedEmote, timeoutThreshold, customLabel));
+            Emotes.Insert(0, new EmoteQueueItem(cachedEmote, timeoutThreshold));
         }
-        return true;
-
     }
 
     public void UpdateTimers(float time)

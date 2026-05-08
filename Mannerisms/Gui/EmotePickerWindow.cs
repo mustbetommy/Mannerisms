@@ -1,6 +1,4 @@
 ﻿using Dalamud.Bindings.ImGui;
-using Dalamud.Game.ClientState.Keys;
-using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using ECommons.Automation;
 using ECommons.ImGuiMethods;
@@ -14,14 +12,14 @@ namespace Mannerisms.Gui;
 
 public class EmotePickerWindow : Window
 {
-    private readonly Plugin plugin;
+    private readonly Plugin _plugin;
 
     public EmotePickerWindow(Plugin plugin) : base(
         $"{Plugin.Name} v{Plugin.Version}###{Plugin.Name}_{nameof(EmotePickerWindow)}",
         ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar)
     {
         AllowClickthrough = false;
-        this.plugin = plugin;
+        _plugin = plugin;
     }
 
     public override void PreDraw()
@@ -29,14 +27,15 @@ public class EmotePickerWindow : Window
         SizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(200, 40),
-            MaximumSize = ImGuiHelpers.MainViewport.Size * 1 / ImGuiHelpers.GlobalScale * 0.95f
+            MaximumSize = new Vector2(float.MaxValue, float.MaxValue),
         };
     }
 
-    public void DrawHandle()
+    private void DrawHandle()
     {
-        var handleWidth = 40f;
-        var handleHeight = 3f;
+        var handleWidth = ImGuiUtils.ScaledFloat(40f);
+        var handleHeight = ImGuiUtils.ScaledFloat(3f);
+        
         var cPos = ImGui.GetCursorScreenPos();
         var centerX = cPos.X + (ImGui.GetContentRegionAvail().X - handleWidth) / 2f;
         var dList = ImGui.GetWindowDrawList();
@@ -55,7 +54,7 @@ public class EmotePickerWindow : Window
     {
         DrawHandle();
 
-        if (plugin.EmoteQueue.Emotes.Count == 0)
+        if (_plugin.EmoteQueue.Emotes.Count == 0)
         {
             const string emptyText = "No Suggestions";
             var textWidth = ImGui.CalcTextSize(emptyText).X;
@@ -66,7 +65,7 @@ public class EmotePickerWindow : Window
         var toRemove = new List<string>();
         var toExecute = new List<string>();
 
-        foreach (var emote in plugin.EmoteQueue.Emotes.Take(plugin.Config.MaxSuggestions))
+        foreach (var emote in _plugin.EmoteQueue.Emotes.Take(_plugin.Config.MaxSuggestions))
         {
             var progress = 1f - (emote.Timer / emote.TimeoutThreshold);
             var color = progress > 0.6f
@@ -140,16 +139,15 @@ public class EmotePickerWindow : Window
             drawList.AddText(timerPos, ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 0.5f)), remainingText);
         }
 
-        // Process after iteration
         foreach (var command in toExecute)
         {
             Chat.ExecuteCommand($"/{command.TrimStart('/')} motion");
-            plugin.EmoteQueue.Remove(command);
+            _plugin.EmoteQueue.Remove(command);
         }
 
         foreach (var command in toRemove)
         {
-            plugin.EmoteQueue.Remove(command);
+            _plugin.EmoteQueue.Remove(command);
         }
     }
 }

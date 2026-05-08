@@ -1,5 +1,4 @@
 ﻿using Dalamud.Game.Chat;
-using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Command;
 using Dalamud.Game.Text;
 using Dalamud.Interface.Windowing;
@@ -15,7 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Dalamud.Bindings.ImGui;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using JetBrains.Annotations;
 
 namespace Mannerisms;
@@ -23,7 +22,6 @@ namespace Mannerisms;
 [UsedImplicitly]
 public partial class Plugin : IDalamudPlugin
 {
-    internal static bool IsDebug = false;
     public const string Name = "Mannerisms";
     internal const string Version = "1.0.0";
 
@@ -62,10 +60,6 @@ public partial class Plugin : IDalamudPlugin
         Svc.ClientState.Logout += OnLogout;
 
         Svc.Log.Info("Mannerisms plugin initialized.");
-
-        #if DEBUG
-        IsDebug = true;
-        #endif
     }
 
     public void ReloadCurrentCharacter()
@@ -165,7 +159,7 @@ public partial class Plugin : IDalamudPlugin
                 if (!gesture.Command.IsNullOrEmpty())
                 {
                     Svc.Log.Debug($"Enqueuing emote: '{gesture.Command}'");
-                    EmoteQueue.TryAddEmote(gesture.Command, (float)framework.UpdateDelta.TotalSeconds + Config.SuggestionTimeout, "");
+                    EmoteQueue.EnqueueEmote(gesture.Command, (float)framework.UpdateDelta.TotalSeconds + Config.SuggestionTimeout);
                 }
             }
             catch (Exception e)
@@ -177,7 +171,7 @@ public partial class Plugin : IDalamudPlugin
 
         _emotePickerWindow.IsOpen = Config.KeepSuggestionsOpen || EmoteQueue.Emotes.Count > 0;
         
-        if (_emotePickerWindow.IsOpen)
+        if (EmoteQueue.Emotes.Count > 0)
         {
             EmoteQueue.UpdateTimers((float)framework.UpdateDelta.TotalSeconds);
             
@@ -202,6 +196,16 @@ public partial class Plugin : IDalamudPlugin
                 Svc.Log.Error($"Error with keybinds: {e} : {e.Message}");
             }
         }
+    }
+
+    private void EnqueueGesture(GestureBase gesture)
+    {
+        if (Config.NotificationSound > 0)
+        {
+            UIGlobals.PlayChatSoundEffect(Config.NotificationSound);
+        }
+        
+        _emoteQueue.Enqueue(gesture);
     }
 
     private void OnChatMessage(IHandleableChatMessage message)
@@ -231,20 +235,20 @@ public partial class Plugin : IDalamudPlugin
         foreach (var gesture in CurrentCharacterData.CommonGestures.Where(
                      gesture => gesture.Value.IsMatch(message, sanitizedSenderName)))
         {
-            _emoteQueue.Enqueue(gesture.Value);
+            EnqueueGesture(gesture.Value);
         }
 
         // Process simple and advanced gestures
         foreach (var gesture in CurrentCharacterData.SimpleGestures.Where(
                      gesture => gesture.IsMatch(message, sanitizedSenderName)))
         {
-            _emoteQueue.Enqueue(gesture);
+            EnqueueGesture(gesture);
         }
         
         foreach (var gesture in CurrentCharacterData.AdvancedGestures.Where(
                      gesture => gesture.IsMatch(message, sanitizedSenderName)))
         {
-            _emoteQueue.Enqueue(gesture);
+            EnqueueGesture(gesture);
         }
     }
 }

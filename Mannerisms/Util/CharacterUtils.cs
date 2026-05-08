@@ -56,7 +56,7 @@ public static partial class CharacterUtils
             return false;
         }
 
-        target = CharacterUtils.SanitizeName(Svc.Targets.Target.Name.TextValue);
+        target = SanitizeName(Svc.Targets.Target.Name.TextValue);
         return true;
     }
 

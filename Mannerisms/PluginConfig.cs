@@ -12,8 +12,8 @@ namespace Mannerisms
     [Serializable]
     public class PluginConfig : IPluginConfiguration
     {
-        [JsonIgnore] private Stopwatch saveTimer = new();
-        [JsonIgnore] private bool isDirty = false;
+        [JsonIgnore] private Stopwatch _saveTimer = new();
+        [JsonIgnore] private bool _isDirty = false;
 
         public int Version { get; set; } = 1;
 
@@ -23,12 +23,13 @@ namespace Mannerisms
         public bool KeepSuggestionsOpen = false;
         public CustomKeybind AcceptSuggestionKeybind = new();
         public CustomKeybind DismissSuggestionKeybind = new();
+        public uint NotificationSound = 0;
 
         public void MarkDirty()
         {
             Svc.Log.Debug($"Marking config dirty.");
-            isDirty = true;
-            saveTimer.Restart();
+            _isDirty = true;
+            _saveTimer.Restart();
         }
 
         public void MarkDirtyIf(bool isDirty)
@@ -41,12 +42,12 @@ namespace Mannerisms
 
         public void CheckSave()
         {
-            if (isDirty && saveTimer.ElapsedMilliseconds > 1000)
+            if (_isDirty && _saveTimer.ElapsedMilliseconds > 1000)
             {
                 Svc.Log.Debug($"Saving plugin config.");
                 Save();
-                isDirty = false;
-                saveTimer.Reset();
+                _isDirty = false;
+                _saveTimer.Reset();
             }
         }
 

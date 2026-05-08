@@ -20,14 +20,15 @@ public class GesturesTab(Plugin plugin)
 
     public void Draw()
     {
-        if (ImGui.BeginTabItem("Gestures"))
-        {
-            ImGui.BeginChild("GesturesTabChild", ImGui.GetContentRegionAvail());
-            DrawCharactersList();
-            DrawCharacterGestures();
-            ImGui.EndChild();
-            ImGui.EndTabItem();
-        }
+        using var tab = ImRaii.TabItem("Gestures##gestures_tab");
+        if (!tab) return;
+
+        using var child = ImRaii.Child("##gestures_tab_child");
+        if (!child) return;
+        
+        DrawCharactersList();
+        ImGui.SameLine();
+        DrawCharacterGestures();
     }
 
     private void DrawTargetingInformation()
@@ -39,160 +40,153 @@ public class GesturesTab(Plugin plugin)
         ImGui.BulletText("The message was sent via /say chat while you have a target.");
         ImGui.BulletText("The message was sent via /party or /alliance chat while you have a target that is in your party.");
         ImGui.BulletText("The message was sent via /tell while you are targeting the recipient.");
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
     }
 
     private void DrawCharactersList()
     {
-        ImGui.BeginGroup();
-        if (ImGui.BeginChild("CharacterSelect", ImGuiHelpers.ScaledVector2(240f, 0), true))
+        using var group = ImRaii.Group();
+        using var child = ImRaii.Child("##character_select", ImGuiHelpers.ScaledVector2(240f, 0), true);
+        if (!child) return;
+        
+        if (plugin.Config.CharactersList.Count == 0)
         {
-            if (plugin.Config.CharactersList.Count == 0)
-            {
-                _selectedCharacter = null;
-                _selectedCharacterData = null;
-            }
-
-            var charFound = CharacterUtils.TryGetCurrent(out var charName, out var charWorld);
-
-            foreach (var character in plugin.Config.CharactersList)
-            {
-                if (ImGui.Selectable(character.Key, _selectedCharacter == character.Key))
-                {
-                    _selectedCharacter = character.Key;
-                    _selectedCharacterData = character.Value;
-                }
-
-                // Context Menu
-                {
-                    if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-                    {
-                        ImGui.OpenPopup($"##context_character_{character.Key}");
-                    }
-
-                    if (ImGui.BeginPopup($"##context_character_{character.Key}"))
-                    {
-                        if (ImGui.Selectable("Copy character data"))
-                        {
-                            var json = JsonConvert.SerializeObject(character.Value, Formatting.None);
-                            ImGui.SetClipboardText(json);
-                            ChatUtils.Print("Character data copied to clipboard.");
-                        }
-                        ImGui.EndPopup();
-
-                        if (ImGui.Selectable("Paste character data"))
-                        {
-                            var json = JsonConvert.SerializeObject(character.Value, Formatting.None);
-                            ImGui.SetClipboardText(json);
-                            ChatUtils.Print("Character data copied to clipboard.");
-                        }
-                        ImGui.EndPopup();
-                    }
-                }
-            }
-
-            ImGui.EndChild();
+            _selectedCharacter = null;
+            _selectedCharacterData = null;
         }
-        ImGui.EndGroup();
+
+        foreach (var character in plugin.Config.CharactersList)
+        {
+            if (ImGui.Selectable(character.Key, _selectedCharacter == character.Key))
+            {
+                _selectedCharacter = character.Key;
+                _selectedCharacterData = character.Value;
+            }
+
+            {
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                {
+                    ImGui.OpenPopup($"##context_character_{character.Key}");
+                }
+
+                using var popup = ImRaii.Popup($"##context_character_{character.Key}");
+                if (popup)
+                {
+                    if (ImGui.Selectable("Copy character data"))
+                    {
+                        var json = JsonConvert.SerializeObject(character.Value, Formatting.None);
+                        ImGui.SetClipboardText(json);
+                        ChatUtils.Print("Character data copied to clipboard.");
+                    }
+
+                    if (ImGui.Selectable("Paste character data"))
+                    {
+                        try
+                        {
+                            var json = ImGui.GetClipboardText();
+                            var imported = JsonConvert.DeserializeObject<CharacterData>(json);
+                            if (imported != null)
+                            {
+                                plugin.Config.ReplaceCharacterData(character.Value, imported);
+                                plugin.Config.MarkDirty();
+                                ChatUtils.Print("Character data imported from clipboard.");
+                            }
+                        }
+                        catch
+                        {
+                            ChatUtils.Print("Clipboard does not contain valid character data.");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void DrawCharacterGestures()
     {
-        ImGui.SameLine();
-        if (ImGui.BeginChild("CharacterGesturesEditor", ImGuiHelpers.ScaledVector2(0), true))
+        using var child = ImRaii.Child("##character_gestures", Vector2.Zero, true);
+        if (!child) return;
+        
+        if (_selectedCharacter == null || _selectedCharacterData == null)
         {
-            if (_selectedCharacter == null || _selectedCharacterData == null)
+            ImGui.TextWrapped("Select a character from the list.");
+            return;
+        }
+        
+        // Button: Copy Character
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
             {
-                ImGui.TextWrapped("Select a character from the list.");
-
-            } else
-            {
-                // Button: Copy Character
+                if (ImGui.Button($"{(char)FontAwesomeIcon.Copy}##copy_character_data",  ImGuiHelpers.ScaledVector2(26f)))
                 {
-                    using (ImRaii.PushFont(UiBuilder.IconFont))
-                    {
-                        if (ImGui.Button($"{(char)FontAwesomeIcon.Copy}##copy_character", new Vector2(26f)))
-                        {
-                            var json = JsonConvert.SerializeObject(_selectedCharacterData, Formatting.None);
-                            ImGui.SetClipboardText(json);
-                            ChatUtils.Print("Character data copied to clipboard.");
-                        }
-                    }
-
-                    if (ImGui.IsItemHovered())
-                    {
-                        ImGui.SetTooltip("Copy this character's data to your clipboard.");
-                    }
+                    var json = JsonConvert.SerializeObject(_selectedCharacterData, Formatting.None);
+                    ImGui.SetClipboardText(json);
+                    ChatUtils.Print("Character data copied to clipboard.");
                 }
+            }
 
-                // Button: Paste Character
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Copy this character's data to your clipboard.");
+            }
+        }
+        
+        ImGui.SameLine(0, ImGuiUtils.ScaledFloat(4f));
+
+        // Button: Paste Character
+        {
+            using (ImRaii.Disabled(!ImGui.GetIO().KeyShift))
+            {
+                using (ImRaii.PushFont(UiBuilder.IconFont))
                 {
-                    ImGui.SameLine(0, 4f);
-                    using (ImRaii.PushFont(UiBuilder.IconFont))
+                    if (ImGui.Button($"{(char)FontAwesomeIcon.Paste}##paste_character_data", ImGuiHelpers.ScaledVector2(26f)) && ImGui.GetIO().KeyShift)
                     {
-                        using (ImRaii.Disabled(!ImGui.GetIO().KeyShift))
+                        try
                         {
-                            if (ImGui.Button($"{(char)FontAwesomeIcon.Paste}##copy_character", new Vector2(26f)) && ImGui.GetIO().KeyShift)
+                            var json = ImGui.GetClipboardText();
+                            var imported = JsonConvert.DeserializeObject<CharacterData>(json);
+                            if (imported != null)
                             {
-                                try
-                                {
-                                    var json = ImGui.GetClipboardText();
-                                    var imported = JsonConvert.DeserializeObject<CharacterData>(json);
-                                    if (imported != null)
-                                    {
-                                        _selectedCharacterData = plugin.Config.ReplaceCharacterData(_selectedCharacterData, imported);
-                                        ChatUtils.Print("Character data imported from clipboard.");
-                                    }
-                                }
-                                catch
-                                {
-                                    ChatUtils.Print("Clipboard does not contain valid character data.");
-                                }
+                                _selectedCharacterData = plugin.Config.ReplaceCharacterData(_selectedCharacterData, imported);
+                                ChatUtils.Print("Character data imported from clipboard.");
                             }
                         }
+                        catch
+                        {
+                            ChatUtils.Print("Clipboard does not contain valid character data.");
+                        }
                     }
-
-                    if (ImGui.IsItemHovered())
-                    {
-                        ImGui.SetTooltip($"Attempt to replace this character's data with the data from your clipboard.{Environment.NewLine}Hold SHIFT and click to paste.");
-                    }
                 }
-
-                ImGui.Dummy(new Vector2(0f, 4f));
-
-                ImGui.BeginTabBar("CharacterGesturesEditorTabs");
-                if (ImGui.BeginTabItem("Common Gestures"))
-                {
-                    ImGui.BeginChild("##common_gestures_editor_tab", ImGui.GetContentRegionAvail());
-                    DrawCommonGesturesTab();
-                    DrawTargetingInformation();
-                    ImGui.EndChild();
-                    ImGui.EndTabItem();
-                }
-
-                if (ImGui.BeginTabItem("Simple Gestures"))
-                {
-                    ImGui.BeginChild("##simple_gestures_editor_tab", ImGui.GetContentRegionAvail());
-                    DrawSimpleGesturesEditorTab();
-                    DrawTargetingInformation();
-                    ImGui.EndChild();
-                    ImGui.EndTabItem();
-                }
-
-                if (ImGui.BeginTabItem("Advanced Gestures"))
-                {
-                    ImGui.BeginChild("##advanced_gestures_editor_tab", ImGui.GetContentRegionAvail());
-                    DrawAdvancedGesturesEditorTab();
-                    DrawTargetingInformation();
-                    ImGui.EndChild();
-                    ImGui.EndTabItem();
-                }
-                ImGui.EndTabBar();
             }
-            ImGui.EndChild();
-        }
-    }
 
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip($"Attempt to replace this character's data with the data from your clipboard.{Environment.NewLine}Hold SHIFT and click to paste.");
+            }
+        }
+
+        ImGuiUtils.Spacer();
+
+        using var tabBar = ImRaii.TabBar("##character_gestures_tabs");
+        if (!tabBar) return;
+
+        DrawGestureSubTab("Common Gestures", "1", DrawCommonGesturesTab);
+        DrawGestureSubTab("Simple Gestures", "2", DrawSimpleGesturesEditorTab);
+        DrawGestureSubTab("Advanced Gestures", "3", DrawAdvancedGesturesEditorTab);
+    }
+    
+    private void DrawGestureSubTab(string label, string id, Action drawContent)
+    {
+        using var tab = ImRaii.TabItem($"{label}##character_gestures_tab_{id}");
+        if (!tab) return;
+
+        using var child = ImRaii.Child($"##character_gestures_tab_{id}_child", ImGui.GetContentRegionAvail());
+        if (!child) return;
+
+        drawContent();
+        DrawTargetingInformation();
+    }
+    
     private void DrawCommonGesturesTab()
     {
         if (_selectedCharacter == null || _selectedCharacterData == null)
@@ -200,12 +194,13 @@ public class GesturesTab(Plugin plugin)
             return;
         }
 
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
         ImGui.TextWrapped("Common gestures are pre-made patterns that cover everyday chat reactions. " +
             "Toggle the ones you want, and your character will perform the emote whenever you type a matching phrase.");
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
 
         plugin.Config.MarkDirtyIf(_selectedCharacterData.VerifyCommonGestures());
+        
         ImGuiUtils.DrawTable("##common_gestures", CommonGestureUtil.List.ToList(), new() {
             Columns =
             [
@@ -216,13 +211,21 @@ public class GesturesTab(Plugin plugin)
                 ("Emote", -1, "", false),
             ],
             HasHeader = true,
-            onDrawColumn = (col, index, item) =>
+            OnDrawColumn = (col, index, item) =>
             {
+                var id = $"##common_gesture_{index}_{col}";
+                var modified = false;
+                
                 var current = _selectedCharacterData.CommonGestures[item.Key];
+                
                 switch (col)
                 {
                     case 0:
-                        plugin.Config.MarkDirtyIf(ImGui.Checkbox($"##common_gesture_{item.Key}", ref current.Enabled));
+                        modified |= ImGui.Checkbox(id, ref current.Enabled);
+                        if (ImGui.IsItemHovered())
+                        {
+                            ImGui.SetTooltip("Enabled?");
+                        }
                         break;
 
                     case 1:
@@ -240,10 +243,13 @@ public class GesturesTab(Plugin plugin)
                         break;
 
                     case 4:
-                        plugin.Config.MarkDirtyIf(
-                            ImGuiUtils.DrawEmoteCombo( $"##common_gesture_emote_{item.Key}", EEmoteComboType.Both, current.Command, ref current.Command));
+                        modified |= ImGuiUtils.DrawEmoteCombo( id, EEmoteComboType.Both, current.Command, ref current.Command);
                         break;
                 }
+
+                if (!modified) return item;
+
+                plugin.Config.MarkDirty();
 
                 return item;
             },
@@ -259,11 +265,11 @@ public class GesturesTab(Plugin plugin)
             return;
         }
 
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
         ImGui.TextWrapped("Build gestures using comma-separated words. Tips:");
         ImGui.BulletText("A plus sign (+) means one or more of the previous character (e.g. bye+ matches byeee)");
         ImGui.BulletText("An asterisk (*) means zero or more of the previous character (e.g. hm?* matches hm and hm?)");
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
 
         ImGuiUtils.DrawTable("SimpleGesturesEditor", _selectedCharacterData.SimpleGestures, new()
         {
@@ -278,13 +284,13 @@ public class GesturesTab(Plugin plugin)
             ],
             HasHeader = true,
             AddNewLabel = "Add Gesture",
-            onAddNew = () =>
+            OnAddNew = () =>
             {
                 _selectedCharacterData.SimpleGestures.Add(new SimpleGesture());
             },
-            onDrawColumn = (col, index, gesture) =>
+            OnDrawColumn = (col, index, gesture) =>
             {
-                var id = $"##SimpleGesture_{index}_{col}";
+                var id = $"##simple_gesture_{index}_{col}";
                 var modified = false;
                 
                 switch (col)
@@ -293,7 +299,7 @@ public class GesturesTab(Plugin plugin)
                         modified |= ImGui.Checkbox(id, ref gesture.Enabled);
                         if (ImGui.IsItemHovered())
                         {
-                            ImGui.SetTooltip("Enabled?");
+                            ImGui.SetTooltip($"Enabled?##{id}");
                         }
                         break;
                     case 1:
@@ -335,13 +341,11 @@ public class GesturesTab(Plugin plugin)
 
                 return gesture;
             },
-            onModified = () =>
+            OnModified = () =>
             {
                 plugin.Config.MarkDirty();
             },
         });
-
-        ImGui.EndTabItem();
     }
 
     private void DrawAdvancedGesturesEditorTab()
@@ -351,58 +355,68 @@ public class GesturesTab(Plugin plugin)
             return;
         }
 
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
         ImGui.TextWrapped("Write your own Regular Expression (Regex) to match messages. " +
             "This gives you full control over pattern matching for complex or unusual triggers.");
-        ImGui.Dummy(new Vector2(0f, 4f));
+        ImGuiUtils.Spacer();
 
         ImGuiUtils.DrawTable("AdvancedGesturesEditor", _selectedCharacterData.AdvancedGestures, new()
         {
             IsManaged = true,
             Columns = [
                 ("##enabled", ImGuiUtils.CheckboxScale, "", false),
-                ("Pattern", -1f, "", false),
+                ("Pattern", 300f, "", false),
                 ("Case Sensitive", 110f, "", true),
                 ("Needs Target (?)", 120f, $"Makes it so that the emote only plays if you have a target.{Environment.NewLine}See the help text above for more information.", true),
-                ("Emote", 150f, "", false),
+                ("Emote", -1, "", false),
             ],
             HasHeader = true,
             AddNewLabel = "Add Gesture",
-            onAddNew = () =>
+            OnAddNew = () =>
             {
                 _selectedCharacterData.AdvancedGestures.Add(new AdvancedGesture());
             },
-            onDrawColumn = (col, index, gesture) =>
+            OnDrawColumn = (col, index, gesture) =>
             {
-                var id = $"##Gesture_{index}_{col}";
+                var id = $"##advanced_gesture_{index}_{col}";
+                var modified = false;
+                
                 switch (col)
                 {
                     case 0:
-                        plugin.Config.MarkDirtyIf(ImGui.Checkbox(id, ref gesture.Enabled));
+                        modified |= ImGui.Checkbox(id, ref gesture.Enabled);
+                        if (ImGui.IsItemHovered())
+                        {
+                            ImGui.SetTooltip($"Enabled?##{id}");
+                        }
                         break;
                     case 1:
                         ImGuiUtils.StretchNext();
                         using (ImRaii.PushFont(UiBuilder.MonoFont))
                         {
-                            plugin.Config.MarkDirtyIf(ImGui.InputText(id, ref gesture.Pattern));
+                            modified |= ImGui.InputText(id, ref gesture.Pattern);
                         }
                         break;
                     case 2:
                         ImGuiUtils.CenterInColumn(ImGuiUtils.CheckboxScale);
-                        plugin.Config.MarkDirtyIf(ImGui.Checkbox(id, ref gesture.IsCaseSensitive));
+                        modified |= ImGui.Checkbox(id, ref gesture.IsCaseSensitive);
                         break;
                     case 3:
                         ImGuiUtils.CenterInColumn(ImGuiUtils.CheckboxScale);
-                        plugin.Config.MarkDirtyIf(ImGui.Checkbox(id, ref gesture.IsTargetOnly));
+                        modified |= ImGui.Checkbox(id, ref gesture.IsTargetOnly);
                         break;
                     case 4:
-                        plugin.Config.MarkDirtyIf(ImGuiUtils.DrawEmoteCombo(id, EEmoteComboType.Both, gesture.Command, ref gesture.Command));
+                        modified |= ImGuiUtils.DrawEmoteCombo(id, EEmoteComboType.Both, gesture.Command, ref gesture.Command);
                         break;
                 };
+                
+                if (!modified) return gesture;
+
+                plugin.Config.MarkDirty();
 
                 return gesture;
             },
-            onModified = () =>
+            OnModified = () =>
             {
                 plugin.Config.MarkDirty();
             },

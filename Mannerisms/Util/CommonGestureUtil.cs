@@ -9,8 +9,8 @@ public class CommonGestureInternal
     public string ExamplesString => string.Join(", ", Examples);
     public string DefaultCommand = string.Empty;
     public string Pattern = string.Empty;
-    public bool  IsCaseSensitive = false;
-    public bool IsTargetOnly = false;
+    public bool  IsCaseSensitive;
+    public bool IsTargetOnly;
 }
 
 public static class CommonGestureUtil

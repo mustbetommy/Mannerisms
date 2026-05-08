@@ -1,6 +1,5 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Keys;
-using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility.Raii;
 using ECommons;
 using ECommons.DalamudServices;
@@ -8,6 +7,7 @@ using ECommons.ImGuiMethods;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using Dalamud.Interface.Utility;
 
 namespace Mannerisms.Util;
 
@@ -26,19 +26,18 @@ public class TableOptions<T>
     public bool HasHeader = true;
     public string AddNewLabel = "Add New";
 
-    public required Func<int, int, T, T> onDrawColumn;
-    public Action? onAddNew;
-    public Action? onModified;
+    public required Func<int, int, T, T> OnDrawColumn;
+    public Action? OnAddNew;
+    public Action? OnModified;
 }
 
 public static class ImGuiUtils
 {
 
-    private static uint _activeKeyBindInputId = 0;
-    public static float CheckboxScale = 22f;
-    public static Vector2 CheckboxSize = new(22f);
-    public static Vector2 AvailableWidth => new(ImGui.GetContentRegionAvail().X, 0f);
-    public static Vector2 GetAvailableSize => ImGui.GetContentRegionAvail();
+    private static uint _activeKeyBindInputId;
+    
+    public static readonly float CheckboxScale = ScaledFloat(22f);
+    public static Vector2 CheckboxSize = ImGuiHelpers.ScaledVector2(22f);
 
     public static void StretchNext() => ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
     public static void CenterInColumn(float width) => ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetColumnWidth() - width) / 2f);
@@ -50,92 +49,81 @@ public static class ImGuiUtils
         var width = ImGui.GetContentRegionAvail().X;
         var drawList = ImGui.GetWindowDrawList();
         drawList.AddLine(pos, pos + new Vector2(width, 0), ImGui.GetColorU32(ImGuiCol.Separator), 1f);
-        ImGui.Dummy(new Vector2(0, 1f));
         ImGui.Spacing();
     }
 
-    public static void BeginSection(string id, Action? header, Action content, bool highlight = false)
+    public static void Spacer()
     {
-        using var _ = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, new Vector2(6f, 4f));
-        using var table = ImRaii.Table($"##Section_{id}", 1, ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit);
-        if (!table) return;
-
-        ImGui.TableSetupColumn(id, ImGuiTableColumnFlags.WidthStretch);
-        if (header != null)
-        {
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg0, new EzColor(highlight ? ImGuiColors.DalamudYellow : ImGuiColors.DalamudGrey3) with { A = 0.2f });
-            header();
-        }
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        content();
+        ImGui.Dummy(ImGuiHelpers.ScaledVector2(0, 4f));
     }
+
+    public static float ScaledFloat(float v) => v * ImGuiHelpers.GlobalScale;
 
     public static bool DrawEmoteCombo(string id, EEmoteComboType type, string currentSelection, ref string outSelection)
     {
-        ImGui.BeginGroup();
+        using var group = ImRaii.Group();
+        
+        var hasCurrentEmote = EmoteUtils.TryGetAny(currentSelection, out var currentEmote);
+        if (hasCurrentEmote && ThreadLoadImageHandler.TryGetIconTextureWrap(currentEmote.Icon, false, out var iconPicture))
         {
-            EmoteUtils.TryGetAny(currentSelection, out var currentEmote);
+            ImGui.Image(iconPicture.Handle, CheckboxSize);
+            ImGui.SameLine();
+        }
 
-            if (currentEmote != null && ThreadLoadImageHandler.TryGetIconTextureWrap(currentEmote.Icon, false, out var iconPicture))
+        StretchNext();
+
+        using var combo = ImRaii.Combo($"##emote_combo_{id}", currentEmote?.Name, ImGuiComboFlags.HeightLargest);
+        if (combo)
+        {
+            var searchInput = string.Empty;
+            
+            if (ImGui.IsWindowAppearing())
             {
-                ImGui.Image(iconPicture.Handle, CheckboxSize);
-                ImGui.SameLine();
+                searchInput = string.Empty;
+                ImGui.SetKeyboardFocusHere();
             }
 
-            StretchNext();
-            if (ImGui.BeginCombo($"##EmoteCombo_combo_{id}", currentEmote?.Name, ImGuiComboFlags.HeightLargest))
+            ImGui.SetNextItemWidth(Math.Max(ScaledFloat(200f), ImGui.GetContentRegionAvail().X));
+            ImGui.InputTextWithHint($"##emote_combo_search_input_{id}", "Search...", ref searchInput, 40);
+
+            using var searchResults = ImRaii.Child($"##emote_combo_search_results_{id}",
+                new Vector2(ImGui.GetContentRegionAvail().X, ScaledFloat(300f)));
+            
+            if (searchResults)
             {
-                string searchInput = string.Empty;
-                if (ImGui.IsWindowAppearing())
+                using (ImRaii.PushColor(ImGuiCol.FrameBgHovered, ImGui.GetColorU32(ImGuiCol.ButtonHovered)))
                 {
-                    searchInput = string.Empty;
-                    ImGui.SetKeyboardFocusHere();
-                }
+                    IEnumerable<KeyValuePair<string, CachedEmote>> list = [];
 
-                ImGui.SetNextItemWidth(Math.Max(200f, ImGui.GetContentRegionAvail().X));
-                ImGui.InputTextWithHint($"##EmoteCombo_search_{id}", "Search...", ref searchInput, 40);
-                if (ImGui.BeginChild($"##EmoteCombo_search_scroll_{id}", new Vector2(ImGui.GetContentRegionAvail().X, 300)))
-                {
-                    using (ImRaii.PushColor(ImGuiCol.FrameBgHovered, ImGui.GetColorU32(ImGuiCol.ButtonHovered)))
+                    switch (type)
                     {
-                        IEnumerable<KeyValuePair<string, CachedEmote>> list = [];
+                        case EEmoteComboType.Emote: list = EmoteUtils.GetEmotesList(); break;
+                        case EEmoteComboType.Expression: list = EmoteUtils.GetExpressionsList(); break;
+                        case EEmoteComboType.Both: list = EmoteUtils.GetCombinedList(); break;
+                    }
 
-                        switch (type)
+                    foreach (var emote in list)
+                    {
+                        if (!string.IsNullOrWhiteSpace(searchInput))
                         {
-                            case EEmoteComboType.Emote: list = EmoteUtils.GetEmotesList(); break;
-                            case EEmoteComboType.Expression: list = EmoteUtils.GetExpressionsList(); break;
-                            case EEmoteComboType.Both: list = EmoteUtils.GetCombinedList(); break;
+                            if (!emote.Value.Name.Contains(searchInput, StringComparison.InvariantCultureIgnoreCase)) continue;
                         }
 
-                        foreach (var emote in list)
+                        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+                        if (DrawEmoteComboItem(emote.Value.Icon, emote.Value.Name))
                         {
-                            if (!string.IsNullOrWhiteSpace(searchInput))
-                            {
-                                if (!emote.Value.Name.Contains(searchInput, StringComparison.InvariantCultureIgnoreCase)) continue;
-                            }
-
-                            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-                            if (DrawEmoteComboItem(emote.Value.Icon, emote.Value.Name))
-                            {
-                                outSelection = emote.Value.Command;
-                                ImGui.CloseCurrentPopup();
-                            }
+                            outSelection = emote.Value.Command;
+                            ImGui.CloseCurrentPopup();
                         }
                     }
-                    ImGui.EndChild();
                 }
-                ImGui.EndCombo();
             }
         }
-        ImGui.EndGroup();
 
         return outSelection != currentSelection;
     }
 
-    public static bool DrawEmoteComboItem(uint icon, string text)
+    private static bool DrawEmoteComboItem(uint icon, string text)
     {
         var itemPos = ImGui.GetCursorScreenPos();
         var itemSize = new Vector2(ImGui.GetTextLineHeight()) + ImGui.GetStyle().FramePadding * 2;
@@ -143,49 +131,21 @@ public static class ImGuiUtils
 
         using (ImRaii.PushColor(ImGuiCol.FrameBg, ImGui.GetColorU32(ImGuiCol.FrameBgHovered), ImGui.IsMouseHoveringRect(itemPos, itemPos + frameSize)))
         {
-            if (ImGui.BeginChildFrame(ImGui.GetID($"icon_text_{icon}_{text}"), frameSize))
+            using var child = ImRaii.ChildFrame(ImGui.GetID($"##icon_text_{icon}_{text}"), frameSize);
+            if (child)
             {
                 var d = ImGui.GetWindowDrawList();
                 var iconDisplay = Svc.Texture.GetFromGameIcon(icon).GetWrapOrDefault();
                 if (iconDisplay != null) d.AddImage(iconDisplay.Handle, itemPos, itemPos + new Vector2(itemSize.Y));
                 var textSize = ImGui.CalcTextSize(text);
                 d.AddText(itemPos + new Vector2(itemSize.Y + ImGui.GetStyle().FramePadding.X, itemSize.Y / 2f - textSize.Y / 2f), ImGui.GetColorU32(ImGuiCol.Text), text);
-
             }
-
-            ImGui.EndChildFrame();
         }
 
         return ImGui.IsItemClicked();
     }
 
-    public static void DrawGridLayout(string id, List<int> columnWidths, Action<Action<List<Action>>> drawRows)
-    {
-        using var _ = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, new Vector2(0f, 4f));
-        if (ImGui.BeginTable($"GridLayoutTable_{id}", columnWidths.Count))
-        {
-            for (var i = 0; i < columnWidths.Count; i++)
-            {
-                ImGui.TableSetupColumn($"GridLayoutTable_{id}_{i}",
-                    columnWidths[i] > 0 ? ImGuiTableColumnFlags.WidthFixed : ImGuiTableColumnFlags.WidthStretch,
-                    columnWidths[i] > 0 ? columnWidths[i] : 0f);
-            }
-
-            drawRows((columns) =>
-            {
-                ImGui.TableNextRow();
-                for (var i = 0; i < columns.Count; i++)
-                {
-                    ImGui.TableNextColumn();
-                    columns[i]();
-                }
-            });
-
-            ImGui.EndTable();
-        }
-    }
-
-    public static bool DrawKeyBindInput(string id, ref CustomKeybind currentKeybind, float width)
+    public static bool DrawKeybindInput(string id, ref CustomKeybind currentKeybind, float width)
     {
         var iid = ImGui.GetID($"##{id}_keybind");
         var isListening = _activeKeyBindInputId == iid;
@@ -234,11 +194,13 @@ public static class ImGuiUtils
 
     public static void DrawKeyValueTable(string id, Action<Action<Action, Action>> drawRows)
     {
-        using var _ = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, new Vector2(0f, 4f));
-        if (ImGui.BeginTable($"##KeyValueTable_{id}", 2))
+        using var padding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, ImGuiHelpers.ScaledVector2(0f, 4f));
+        using var table = ImRaii.Table($"##key_value_table_{id}", 2);
+        
+        if (table)
         {
-            ImGui.TableSetupColumn($"##KeyValueTableField_{id}", ImGuiTableColumnFlags.WidthFixed, 200f);
-            ImGui.TableSetupColumn($"##KeyValueTableValue_{id}", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn($"##key_value_table_field_{id}", ImGuiTableColumnFlags.WidthFixed, ScaledFloat(200f));
+            ImGui.TableSetupColumn($"##key_value_table_value_{id}", ImGuiTableColumnFlags.WidthStretch);
 
             drawRows((drawLabel, drawValue) =>
             {
@@ -248,142 +210,148 @@ public static class ImGuiUtils
                 ImGui.TableNextColumn();
                 drawValue();
             });
-
-            ImGui.EndTable();
         }
     }
 
     public static void DrawTable<T>(string id, List<T> items, TableOptions<T> options)
     {
-        using var _ = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, new Vector2(2f, 2f));
+        var rowToDelete = -1;
+        var rowToMoveUp = -1;
+        
+        using var padding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, ImGuiHelpers.ScaledVector2(2f, 2f));
         var columnCount = options.IsManaged ? options.Columns.Count + 1 : options.Columns.Count;
-        if (ImGui.BeginTable($"##CustomTable_{id}", columnCount))
+        
+        using (var table = ImRaii.Table($"##custom_table_{id}", columnCount))
         {
-            if (options.IsManaged)
+            if (table)
             {
-                ImGui.TableSetupColumn($"##CustomTableColumn_{id}_actions", ImGuiTableColumnFlags.WidthFixed, 3f * ImGuiUtils.CheckboxScale + 8f);
-            }
-
-            foreach (var column in options.Columns)
-            {
-                var columnFlags = column.Width < 0f ? ImGuiTableColumnFlags.WidthStretch : ImGuiTableColumnFlags.WidthFixed;
-                var columnWidth = Math.Abs(column.Width);
-                ImGui.TableSetupColumn($"{column.Name}##CustomTableColumn_{id}_{column.Name}", columnFlags, columnWidth);
-            }
-
-            if (options.HasHeader)
-            {
-                ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
-                var colIndex = 0;
-
-                // Skip the actions column
                 if (options.IsManaged)
                 {
-                    ImGui.TableSetColumnIndex(0);
-                    ImGui.TableHeader("");
-                    colIndex++;
+                    ImGui.TableSetupColumn($"##custom_table_column_{id}_actions", ImGuiTableColumnFlags.WidthFixed,
+                        ScaledFloat(3f * CheckboxScale + 8f));
                 }
 
                 foreach (var column in options.Columns)
                 {
-                    ImGui.TableSetColumnIndex(colIndex);
-                    if (column.Centered)
-                    {
-                        var textWidth = ImGui.CalcTextSize(column.Name).X;
-                        CenterInColumn(textWidth);
-                    }
-                    ImGui.TableHeader(column.Name);
-
-                    if (ImGui.IsItemHovered() && !column.Hint.IsNullOrEmpty())
-                    {
-                        ImGui.SetTooltip(column.Hint);
-                    }
-                    colIndex++;
+                    var columnFlags = column.Width < 0f
+                        ? ImGuiTableColumnFlags.WidthStretch
+                        : ImGuiTableColumnFlags.WidthFixed;
+                    var columnWidth = ScaledFloat(Math.Abs(column.Width));
+                    ImGui.TableSetupColumn($"{column.Name}##custom_table_column_{id}_{column.Name}", columnFlags,
+                        columnWidth);
                 }
 
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.Dummy(Vector2.Zero);
+                if (options.HasHeader)
+                {
+                    ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+                    var colIndex = 0;
+
+                    // Skip the actions column
+                    if (options.IsManaged)
+                    {
+                        ImGui.TableSetColumnIndex(0);
+                        ImGui.TableHeader("");
+                        colIndex++;
+                    }
+
+                    foreach (var column in options.Columns)
+                    {
+                        ImGui.TableSetColumnIndex(colIndex);
+                        if (column.Centered)
+                        {
+                            var textWidth = ImGui.CalcTextSize(column.Name).X;
+                            CenterInColumn(textWidth);
+                        }
+
+                        ImGui.TableHeader(column.Name);
+
+                        if (ImGui.IsItemHovered() && !column.Hint.IsNullOrEmpty())
+                        {
+                            ImGui.SetTooltip(column.Hint);
+                        }
+
+                        colIndex++;
+                    }
+
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.Dummy(Vector2.Zero);
+                }
+
+                for (var i = 0; i < items.Count; i++)
+                {
+                    var item = items[i];
+
+                    using var rowId = ImRaii.PushId($"##custom_table_row_{id}_{i}");
+                    ImGui.TableNextRow();
+
+                    // Column: Actions
+                    if (options.IsManaged)
+                    {
+                        ImGui.TableNextColumn();
+                        using var spacing = ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, ImGuiHelpers.ScaledVector2(4f));
+
+                        // Button: Delete
+                        using (ImRaii.Disabled(!ImGui.GetIO().KeyShift))
+                        {
+                            if (ImGui.Button($"X##custom_table_delete_{id}", ImGuiUtils.CheckboxSize) && ImGui.GetIO().KeyShift)
+                            {
+                                rowToDelete = i;
+                            }
+                        }
+
+                        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled) && !ImGui.GetIO().KeyShift)
+                        {
+                            ImGui.SetTooltip("Hold SHIFT to delete.");
+                        }
+
+                        // Button: Move Up
+                        ImGui.SameLine();
+                        using (ImRaii.Disabled(i <= 0))
+                        {
+                            if (ImGui.ArrowButton($"##custom_table_up_{id}", ImGuiDir.Up))
+                            {
+                                rowToMoveUp = i;
+                            }
+                        }
+
+                        // Button: Move Down
+                        ImGui.SameLine();
+                        using (ImRaii.Disabled(i >= items.Count - 1))
+                        {
+                            if (ImGui.ArrowButton($"##custom_table_down_{id}", ImGuiDir.Down))
+                            {
+                                rowToMoveUp = i + 1;
+                            }
+                        }
+                    }
+
+                    // Custom Columns
+                    for (var j = 0; j < options.Columns.Count; j++)
+                    {
+                        ImGui.TableNextColumn();
+                        items[i] = options.OnDrawColumn(j, i, item);
+                    }
+                }
+            }
+        }
+
+        // Possibly delete a gesture
+        if (options.IsManaged)
+        {
+            if (rowToDelete >= 0)
+            {
+                items.RemoveAt(rowToDelete);
+                options.OnModified?.Invoke();
             }
 
-            var rowToDelete = -1;
-            var rowToMoveUp = -1;
-
-            for (var i = 0;  i < items.Count; i++)
+            // Possibly move a gesture
+            if (rowToMoveUp > 0)
             {
-                var item = items[i];
-
-                ImGui.PushID($"##CustomTableRow_{id}_{i}");
-                ImGui.TableNextRow();
-
-                // Column: Actions
-                if (options.IsManaged)
-                {
-                    ImGui.TableNextColumn();
-                    ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(4f));
-
-                    // Button: Delete
-                    using (ImRaii.Disabled(!ImGui.GetIO().KeyShift))
-                    {
-                        if (ImGui.Button($"X##delete", ImGuiUtils.CheckboxSize) && ImGui.GetIO().KeyShift)
-                        {
-                            rowToDelete = i;
-                        }
-                    }
-
-                    if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled) && !ImGui.GetIO().KeyShift)
-                    {
-                        ImGui.SetTooltip("Hold SHIFT to delete.");
-                    }
-
-                    // Button: Move Up
-                    ImGui.SameLine();
-                    using (ImRaii.Disabled(i <= 0))
-                    {
-                        if (ImGui.ArrowButton("##up", ImGuiDir.Up))
-                        {
-                            rowToMoveUp = i;
-                        }
-                    }
-
-                    // Button: Move Down
-                    ImGui.SameLine();
-                    using (ImRaii.Disabled(i >= items.Count - 1))
-                    {
-                        if (ImGui.ArrowButton("##down", ImGuiDir.Down))
-                        {
-                            rowToMoveUp = i + 1;
-                        }
-                    }
-                }
-
-                // Custom Columns
-                for (var j = 0; j < options.Columns.Count; j++)
-                {
-                    ImGui.TableNextColumn();
-                    items[i] = options.onDrawColumn(j, i, item);
-                }
-            }
-
-            ImGui.EndTable();
-
-            // Possibly delete a gesture
-            if (options.IsManaged)
-            {
-                if (rowToDelete >= 0)
-                {
-                    items.RemoveAt(rowToDelete);
-                    options.onModified?.Invoke();
-                }
-
-                // Possibly move a gesture
-                if (rowToMoveUp > 0)
-                {
-                    var move = items[rowToMoveUp];
-                    items.RemoveAt(rowToMoveUp);
-                    items.Insert(rowToMoveUp - 1, move);
-                    options.onModified?.Invoke();
-                }
+                var move = items[rowToMoveUp];
+                items.RemoveAt(rowToMoveUp);
+                items.Insert(rowToMoveUp - 1, move);
+                options.OnModified?.Invoke();
             }
         }
 
@@ -397,8 +365,8 @@ public static class ImGuiUtils
 
             if (ImGui.Button($"{options.AddNewLabel}##add_gesture"))
             {
-                options.onAddNew?.Invoke();
-                options.onModified?.Invoke();
+                options.OnAddNew?.Invoke();
+                options.OnModified?.Invoke();
             }
         }
     }

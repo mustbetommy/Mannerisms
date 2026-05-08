@@ -1,6 +1,7 @@
 ﻿using ECommons;
 using Mannerisms.Util;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Mannerisms.Data;
 
@@ -10,7 +11,7 @@ public class CharacterData(string name, string world)
     public string Name = name;
     public string World = world;
 
-    private bool _commonGesturesVerified;
+    [JsonIgnore] private bool _commonGesturesVerified;
     public Dictionary<string, CommonGesture> CommonGestures = [];
     public readonly List<SimpleGesture> SimpleGestures = [];
     public readonly List<AdvancedGesture> AdvancedGestures = [];

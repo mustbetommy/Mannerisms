@@ -13,8 +13,8 @@ namespace Mannerisms.Gui;
 
 public class ConfigWindow : Window
 {
-    private readonly Plugin plugin;
-    private Stopwatch configModifiedStopwatch = new();
+    private readonly Plugin _plugin;
+    private readonly Stopwatch _configModifiedStopwatch = new();
 
     private readonly GesturesTab _gesturesTab;
     private readonly SettingsTab _settingsTab;
@@ -23,7 +23,7 @@ public class ConfigWindow : Window
         : base($"{Plugin.Name} v{Plugin.Version}###{Plugin.Name}_{nameof(ConfigWindow)}", ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
         AllowClickthrough = false;
-        this.plugin = plugin;
+        _plugin = plugin;
 
         _gesturesTab = new GesturesTab(plugin);
         _settingsTab = new SettingsTab(plugin);
@@ -57,25 +57,26 @@ public class ConfigWindow : Window
         SizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(800, 400),
-            MaximumSize = ImGuiHelpers.MainViewport.Size * 1 / ImGuiHelpers.GlobalScale * 0.95f
+            MaximumSize = new Vector2(float.MaxValue, float.MaxValue),
         };
     }
 
     public override void Draw()
     {
-        ImGui.BeginTabBar("ConfigTabs");
+        _plugin.Config.CheckSave();
+        
+        using var tabBar = ImRaii.TabBar("##config_window_tabs");
+        if (!tabBar) return;
+        
         _gesturesTab.Draw();
         _settingsTab.Draw();
-        ImGui.EndTabBar();
-
-        plugin.Config.CheckSave();
     }
 
     public override void OnClose()
     {
-        configModifiedStopwatch.Reset();
-        plugin.Config.Save();
-        plugin.ReloadCurrentCharacter();
+        _configModifiedStopwatch.Reset();
+        _plugin.Config.Save();
+        _plugin.ReloadCurrentCharacter();
         base.OnClose();
     }
 

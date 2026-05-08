@@ -54,7 +54,7 @@ public class EmotePickerWindow : Window
     {
         DrawHandle();
 
-        if (_plugin.EmoteQueue.Emotes.Count == 0)
+        if (_plugin.EmoteSuggestionsQueue.Emotes.Count == 0)
         {
             const string emptyText = "No Suggestions";
             var textWidth = ImGui.CalcTextSize(emptyText).X;
@@ -65,7 +65,7 @@ public class EmotePickerWindow : Window
         var toRemove = new List<string>();
         var toExecute = new List<string>();
 
-        foreach (var emote in _plugin.EmoteQueue.Emotes.Take(_plugin.Config.MaxSuggestions))
+        foreach (var emote in _plugin.EmoteSuggestionsQueue.Emotes.Take(_plugin.Config.MaxSuggestions))
         {
             var progress = 1f - (emote.Timer / emote.TimeoutThreshold);
             var color = progress > 0.6f
@@ -142,12 +142,12 @@ public class EmotePickerWindow : Window
         foreach (var command in toExecute)
         {
             Chat.ExecuteCommand($"/{command.TrimStart('/')} motion");
-            _plugin.EmoteQueue.Remove(command);
+            _plugin.EmoteSuggestionsQueue.Remove(command);
         }
 
         foreach (var command in toRemove)
         {
-            _plugin.EmoteQueue.Remove(command);
+            _plugin.EmoteSuggestionsQueue.Remove(command);
         }
     }
 }

@@ -12,6 +12,7 @@ public class CharacterData(string name, string world)
     public string World = world;
 
     [JsonIgnore] private bool _commonGesturesVerified;
+    public bool SuggestEmotions = true;
     public Dictionary<string, CommonGesture> CommonGestures = [];
     public readonly List<SimpleGesture> SimpleGestures = [];
     public readonly List<AdvancedGesture> AdvancedGestures = [];

@@ -13,7 +13,7 @@ public class EmoteQueueItem(CachedEmote emote, float timeoutThreshold)
     public readonly CachedEmote Emote = emote;
 }
 
-public class EmoteQueueRuntime
+public class EmoteSuggestionsQueueRuntime
 {
     public readonly List<EmoteQueueItem> Emotes = [];
 

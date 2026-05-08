@@ -32,8 +32,8 @@ public partial class Plugin : IDalamudPlugin
     private readonly ConfigWindow _configWindow;
     private readonly EmotePickerWindow _emotePickerWindow;
 
-    private readonly Queue<GestureBase> _emoteQueue = new();
-    public readonly EmoteQueueRuntime EmoteQueue = new();
+    private readonly List<GestureBase> _pendingGestures = [];
+    public readonly EmoteSuggestionsQueueRuntime EmoteSuggestionsQueue = new();
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -117,11 +117,6 @@ public partial class Plugin : IDalamudPlugin
         PluginService.PluginInterface.SavePluginConfig(Config);
     }
 
-    public void OpenConfig()
-    {
-        _configWindow.IsOpen = true;
-    }
-
     private void OnCommand(string command, string args)
     {
         _configWindow.IsOpen = !_configWindow.IsOpen;
@@ -151,58 +146,44 @@ public partial class Plugin : IDalamudPlugin
 
     private void OnFrameworkUpdate(IFramework framework)
     {
-        if (_emoteQueue.Count > 0)
+        if (_pendingGestures.Count > 0)
         {
-            try
+            var playSound = false;
+
+            foreach (var gesture in _pendingGestures.Where(gesture => !gesture.Command.IsNullOrEmpty()))
             {
-                var gesture = _emoteQueue.Dequeue();
-                if (!gesture.Command.IsNullOrEmpty())
-                {
-                    Svc.Log.Debug($"Enqueuing emote: '{gesture.Command}'");
-                    EmoteQueue.EnqueueEmote(gesture.Command, (float)framework.UpdateDelta.TotalSeconds + Config.SuggestionTimeout);
-                }
-            }
-            catch (Exception e)
-            {
-                Svc.Log.Error($"Failed to enqueue emote: ${e}: ${e.Message}");
+                playSound = true;
+                Svc.Log.Debug($"Suggesting emote: '{gesture.Command}'");
+                EmoteSuggestionsQueue.EnqueueEmote(gesture.Command, (float)framework.UpdateDelta.TotalSeconds + Config.SuggestionTimeout);
             }
             
+            _pendingGestures.Clear();   
+            
+            if (playSound && Config.NotificationSound > 0)
+            {
+                UIGlobals.PlayChatSoundEffect(Config.NotificationSound);
+            } 
         }
 
-        _emotePickerWindow.IsOpen = Config.KeepSuggestionsOpen || EmoteQueue.Emotes.Count > 0;
+        _emotePickerWindow.IsOpen = Config.KeepSuggestionsOpen || EmoteSuggestionsQueue.Emotes.Count > 0;
         
-        if (EmoteQueue.Emotes.Count > 0)
+        if (EmoteSuggestionsQueue.Emotes.Count > 0)
         {
-            EmoteQueue.UpdateTimers((float)framework.UpdateDelta.TotalSeconds);
+            EmoteSuggestionsQueue.UpdateTimers((float)framework.UpdateDelta.TotalSeconds);
             
             // Possibly accept the top suggestion.
-            if (Config.AcceptSuggestionKeybind.IsPressed(true) && EmoteQueue.Emotes.Count > 0)
+            if (Config.AcceptSuggestionKeybind.IsPressed(true) && EmoteSuggestionsQueue.Emotes.Count > 0)
             {
-                var top = EmoteQueue.Emotes[0];
+                var top = EmoteSuggestionsQueue.Emotes[0];
                 Chat.ExecuteCommand($"/{top.Emote.Command.TrimStart('/')} motion");
-                EmoteQueue.Emotes.RemoveAt(0);
+                EmoteSuggestionsQueue.Emotes.RemoveAt(0);
             }
         
             // Possibly dismiss the top suggestion.
-            try
+            if (Config.DismissSuggestionKeybind.IsPressed(true) && EmoteSuggestionsQueue.Emotes.Count > 0)
             {
-                if (Config.DismissSuggestionKeybind.IsPressed(true) && EmoteQueue.Emotes.Count > 0)
-                {
-                    EmoteQueue.Emotes.RemoveAt(0);
-                }
+                EmoteSuggestionsQueue.Emotes.RemoveAt(0);
             }
-            catch (Exception e)
-            {
-                Svc.Log.Error($"Error with keybinds: {e} : {e.Message}");
-            }
-        }
-    }
-
-    private void EnqueueGesture(GestureBase gesture)
-    {
-        if (Config.NotificationSound > 0)
-        {
-            UIGlobals.PlayChatSoundEffect(Config.NotificationSound);
         }
         
         _emoteQueue.Enqueue(gesture);
@@ -235,20 +216,20 @@ public partial class Plugin : IDalamudPlugin
         foreach (var gesture in CurrentCharacterData.CommonGestures.Where(
                      gesture => gesture.Value.IsMatch(message, sanitizedSenderName)))
         {
-            EnqueueGesture(gesture.Value);
+            _pendingGestures.Add(gesture.Value);
         }
 
         // Process simple and advanced gestures
         foreach (var gesture in CurrentCharacterData.SimpleGestures.Where(
                      gesture => gesture.IsMatch(message, sanitizedSenderName)))
         {
-            EnqueueGesture(gesture);
+            _pendingGestures.Add(gesture);
         }
         
         foreach (var gesture in CurrentCharacterData.AdvancedGestures.Where(
                      gesture => gesture.IsMatch(message, sanitizedSenderName)))
         {
-            EnqueueGesture(gesture);
+            _pendingGestures.Add(gesture);
         }
     }
 }

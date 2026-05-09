@@ -22,7 +22,7 @@ public static class CommonGestureUtil
             Label = "Greetings",
             Examples = ["hi", "hey", "hello", "sup", "etc."],
             DefaultCommand = "/wave",
-            Pattern = "(he+y+a?|sup+|hi+|hello+)\\b",
+            Pattern = @"\b(he+y+a?|sup+|hi+|hello+)\b",
             IsCaseSensitive = false,
             IsTargetOnly = true,
         },

@@ -130,6 +130,7 @@ public class Plugin : IDalamudPlugin
     private void OnLogout(int type, int code)
     {
         CurrentCharacterData = null;
+        _emotePickerWindow.IsOpen = false;
     }
 
     private void OnFirstFrameworkUpdate(IFramework framework)
@@ -145,6 +146,11 @@ public class Plugin : IDalamudPlugin
 
     private void OnFrameworkUpdate(IFramework framework)
     {
+        if (!PluginService.ClientState.IsLoggedIn)
+        {
+            return;
+        }
+        
         if (_pendingGestures.Count > 0)
         {
             var playSound = false;

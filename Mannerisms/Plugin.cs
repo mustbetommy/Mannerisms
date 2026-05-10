@@ -10,7 +10,6 @@ using ECommons.DalamudServices;
 using Mannerisms.Data;
 using Mannerisms.Gui;
 using Mannerisms.Util;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -20,7 +19,7 @@ using JetBrains.Annotations;
 namespace Mannerisms;
 
 [UsedImplicitly]
-public partial class Plugin : IDalamudPlugin
+public class Plugin : IDalamudPlugin
 {
     public const string Name = "Mannerisms";
     internal const string Version = "1.0.0";

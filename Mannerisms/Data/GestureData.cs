@@ -145,7 +145,7 @@ public class SimpleGesture : GestureBase
             return;
         }
 
-        Pattern = string.Empty;
+        Pattern = @"\b";
 
         if (MatchType is ESimpleGesturePatternMatchType.Start or ESimpleGesturePatternMatchType.FullMessage)
         {
@@ -170,6 +170,8 @@ public class SimpleGesture : GestureBase
         {
             Pattern += "$";
         }
+
+        Pattern += @"\b";
         
         Svc.Log.Info($"Generated pattern: '{Pattern}'");
     }

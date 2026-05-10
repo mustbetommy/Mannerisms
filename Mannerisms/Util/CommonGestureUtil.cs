@@ -31,7 +31,7 @@ public static class CommonGestureUtil
             Label = "Goodbyes",
             Examples = ["goodbye", "bye", "nini", "etc."],
             DefaultCommand = "/goodbye",
-            Pattern = @"\b(nini+|bye+|goodbye+|see (ya+|yo+u+))\b",
+            Pattern = @"\b(nini+|bye+|goodbye+|see ya+)\b",
             IsCaseSensitive = false,
             IsTargetOnly = true,
         },
@@ -42,7 +42,7 @@ public static class CommonGestureUtil
             DefaultCommand = "/yes",
             Pattern = @"\b(y(e+|e+a+|a+|i+)(h*|s*|p*)|sa+me+|fr+|tru+e+|su+re+)\b",
             IsCaseSensitive = false,
-            IsTargetOnly = false,
+            IsTargetOnly = true,
         },
         ["negatives"] = new CommonGestureInternal()
         {
@@ -51,7 +51,7 @@ public static class CommonGestureUtil
             DefaultCommand = "/no",
             Pattern = @"\b(ny*o+|no+pe+|lie+s+|na+h+|nu+|nu uh+)\b",
             IsCaseSensitive = false,
-            IsTargetOnly = false,
+            IsTargetOnly = true,
         },
         ["chuckles"] = new CommonGestureInternal()
         {
@@ -60,7 +60,7 @@ public static class CommonGestureUtil
             DefaultCommand = "/chuckle",
             Pattern = @"\b(haha*|hehe*|hihi)\b",
             IsCaseSensitive = false,
-            IsTargetOnly = false,
+            IsTargetOnly = true,
         },
         ["laughs"] = new CommonGestureInternal()
         {
@@ -69,7 +69,7 @@ public static class CommonGestureUtil
             DefaultCommand = "/laugh",
             Pattern = @"\b(lmf?ao+|lo+l+)\b",
             IsCaseSensitive = false,
-            IsTargetOnly = false,
+            IsTargetOnly = true,
         },
     };
 }

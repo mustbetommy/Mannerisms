@@ -33,7 +33,9 @@ public class GesturesTab(Plugin plugin)
 
     private void DrawTargetingInformation()
     {
+        ImGuiUtils.Spacer();
         ImGuiUtils.Separator();
+        ImGuiUtils.Spacer();
         ImGui.TextColored(new Vector4(1f, 1f, 0.3f, 1f), "Information About Targeting");
         ImGui.TextWrapped("In order to maximize immersion and to prevent your character from emoting \"randomly\" while chatting from a distance, " +
             "gestures that are marked with \"Needs Target\" will only play under the following circumstances:");
@@ -245,7 +247,7 @@ public class GesturesTab(Plugin plugin)
                         break;
                     
                     case 3:
-                        var text = item.Value.IsTargetOnly ? "" : "";
+                        var text = item.Value.IsTargetOnly ? "Yes" : "No";
                         ImGuiUtils.CenterInColumn(ImGui.CalcTextSize(text).X);
                         ImGuiEx.Text(text);
                         break;
@@ -262,8 +264,6 @@ public class GesturesTab(Plugin plugin)
                 return item;
             },
         });
-
-        ImGui.Spacing();
     }
 
     private void DrawSimpleGesturesEditorTab()

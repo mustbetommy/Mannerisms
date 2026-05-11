@@ -99,6 +99,19 @@ public class GesturesTab(Plugin plugin)
                             ChatUtils.Print("Clipboard does not contain valid character data.");
                         }
                     }
+
+                    if (!CharacterUtils.IsCurrent(character.Value.Name, character.Value.World))
+                    {
+                        using (ImRaii.Disabled(!ImGui.GetIO().KeyShift))
+                        {
+                            if (ImGui.Selectable("(SHIFT) Delete character"))
+                            {
+                                plugin.Config.TryDeleteCharacter(character.Key);
+                                _selectedCharacter = null;
+                                _selectedCharacterData = null;
+                            }
+                        }
+                    }
                 }
             }
         }

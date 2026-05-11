@@ -104,7 +104,12 @@ public static partial class CharacterUtils
                !Svc.ClientState.IsPvP;
     }
 
-    public static string SanitizeName(string characterName) => SanitizeNameRegex().Replace(characterName, "").Trim();
+    public static bool IsCurrent(string name, string world)
+    {
+        return name == _currentName && world == _currentWorld;
+    }
+
+    public static string SanitizeName(string name) => SanitizeNameRegex().Replace(name, "").Trim();
     [GeneratedRegex(@"[^a-zA-Z' ]")]
     private static partial Regex SanitizeNameRegex();
 }

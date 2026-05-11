@@ -4,7 +4,7 @@
 		<Version>0.0.0.1</Version>
 		<Description>Mannerisms</Description>
 		<Copyright>2026 (C) TeejayLabs</Copyright>
-		<PackageProjectUrl>https://github.com/mustbetommy/MannerismsLite</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/mustbetommy/Mannerisms</PackageProjectUrl>
 	</PropertyGroup>
 
 	<ItemGroup>

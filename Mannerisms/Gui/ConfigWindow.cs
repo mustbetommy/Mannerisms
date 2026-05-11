@@ -1,6 +1,5 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
-using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using ECommons;
@@ -50,8 +49,6 @@ public class ConfigWindow : Window
         #endif
     }
 
-    #region Lifecycle
-
     public override void PreDraw()
     {
         SizeConstraints = new WindowSizeConstraints
@@ -79,6 +76,4 @@ public class ConfigWindow : Window
         _plugin.ReloadCurrentCharacter();
         base.OnClose();
     }
-
-    #endregion
 }

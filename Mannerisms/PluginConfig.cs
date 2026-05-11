@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using ECommons;
 using Mannerisms.Util;
 
 namespace Mannerisms
@@ -24,6 +25,8 @@ namespace Mannerisms
         public CustomKeybind AcceptSuggestionKeybind = new();
         public CustomKeybind DismissSuggestionKeybind = new();
         public uint NotificationSound = 0;
+        
+        #region Saving
 
         public void MarkDirty()
         {
@@ -55,6 +58,10 @@ namespace Mannerisms
         {
             PluginService.PluginInterface.SavePluginConfig(this);
         }
+        
+        #endregion
+        
+        #region Character
 
         public bool TryAddCharacter(string name, string world)
         {
@@ -65,10 +72,35 @@ namespace Mannerisms
 
         public bool TryDeleteCharacter(string key)
         {
-            if (!CharactersList.ContainsKey(key)) return false;
-            CharactersList.Remove(key);
+            if (!CharactersList.Remove(key)) return false;
             MarkDirty();
             return true;
+        }
+
+        public bool TryLoadCharacter(string name, string world, out CharacterData character)
+        {
+            while (true)
+            {
+                if (name.IsNullOrEmpty() || world.IsNullOrEmpty())
+                {
+                    character = null!;
+                    return false;
+                }
+
+                if (CharactersList.TryGetValue($"{name}@{world}", out var foundCharacter))
+                {
+                    character = foundCharacter;
+                    return true;
+                }
+
+                if (TryAddCharacter(name, world))
+                {
+                    continue;
+                }
+
+                character = null!;
+                return false;
+            }
         }
 
         public CharacterData ReplaceCharacterData(CharacterData oldData, CharacterData newData)
@@ -79,22 +111,7 @@ namespace Mannerisms
             MarkDirty();
             return newData;
         }
-
-        public bool TryLoadCharacter(string name, string world, out CharacterData? character)
-        {
-            if (CharactersList.TryGetValue($"{name}@{world}", out var foundCharacter))
-            {
-                character = foundCharacter;
-                return true;
-            }
-
-            if (TryAddCharacter(name, world))
-            {
-                return TryLoadCharacter(name, world, out character);
-            }
-
-            character = null;
-            return false;
-        }
+        
+        #endregion
     }
 }

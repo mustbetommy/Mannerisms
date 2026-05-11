@@ -14,7 +14,6 @@ public static class EmotionUtils
         new EmotionGestureInternal("/cry", @"(:'(c|\()+)(?=\s|$)"),
         new EmotionGestureInternal("/sad", @"((:(c|\(|/)+)|D:)(?=\s|$)"),
         new EmotionGestureInternal("/amazed", @"(:(o|O)+)(?=\s|$)"),
-        new EmotionGestureInternal("/smirk", @"(:(3|P)+c?)(?=\s|$)"),
         new EmotionGestureInternal("/wink", @"(;(\)|D|P|B)+)(?=\s|$)"),
     ];
 

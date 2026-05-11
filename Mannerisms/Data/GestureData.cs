@@ -3,7 +3,6 @@ using Dalamud.Game.Text;
 using ECommons.DalamudServices;
 using Mannerisms.Util;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -145,7 +144,7 @@ public class SimpleGesture : GestureBase
             return;
         }
 
-        Pattern = @"\b";
+        Pattern = string.Empty;
 
         if (MatchType is ESimpleGesturePatternMatchType.Start or ESimpleGesturePatternMatchType.FullMessage)
         {
@@ -162,18 +161,29 @@ public class SimpleGesture : GestureBase
                 return escaped.Replace("\x00", "+").Replace("\x01", "*");
             });
 
-        Pattern += "(" + string.Join("|", termsList) + ")";
+        var joined = string.Join("|", termsList);
+    
+        if (MatchType == ESimpleGesturePatternMatchType.Anywhere)
+        {
+            // Only use word boundaries for "anywhere" mode to prevent partial word matches
+            // Check if the terms start/end with word characters
+            var firstChar = joined[0];
+            var lastChar = joined[^1];
+            var prefix = char.IsLetterOrDigit(firstChar) ? "\\b" : "";
+            var suffix = char.IsLetterOrDigit(lastChar) ? "\\b" : "";
+            Pattern += $"{prefix}({joined}){suffix}";
+        }
+        else
+        {
+            Pattern += $"({joined})";
+        }
+
         Pattern += "[!?]*";
 
-        if (MatchType == ESimpleGesturePatternMatchType.End ||
-            MatchType == ESimpleGesturePatternMatchType.FullMessage)
+        if (MatchType is ESimpleGesturePatternMatchType.End or ESimpleGesturePatternMatchType.FullMessage)
         {
             Pattern += "$";
         }
-
-        Pattern += @"\b";
-        
-        Svc.Log.Info($"Generated pattern: '{Pattern}'");
     }
     
     public override bool IsMatch(IHandleableChatMessage message, string senderName)
